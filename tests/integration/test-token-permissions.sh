@@ -27,7 +27,7 @@ pass() { echo "ok: $*"; }
 
 run_case() {
   local owner="$1" mode="$2" label="$3"
-  local tokfile="$WORK/token-${owner%%:*}"
+  local tokfile="$WORK/token-${owner%%:*}-${mode}"
   openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n' > "$tokfile"
   local token
   token="$(cat "$tokfile")" # read before chown: the test user may not be able to afterwards
