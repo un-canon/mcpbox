@@ -1,0 +1,19 @@
+# Local configuration and runtime state (never commit)
+.env
+.env.*
+!.env.example
+runtime/
+*.zip
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Editors / OS
+.DS_Store
+.vscode/
+.idea/
+
+# Test artefacts
+tests/.tmp/
+coverage/

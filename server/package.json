@@ -1,0 +1,22 @@
+{
+  "name": "mcpbox-server",
+  "version": "1.0.0",
+  "description": "MCP server for MCPBox: exec_command, write_stdin, apply_patch and view_image inside an isolated Docker workbench",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "main": "src/server.mjs",
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test \"test/**/*.test.mjs\"",
+    "lint": "node --check src/*.mjs && node --check test/*.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/node": "2.0.0",
+    "@modelcontextprotocol/server": "2.0.0",
+    "zod": "4.4.3"
+  }
+}
