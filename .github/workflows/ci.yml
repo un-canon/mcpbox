@@ -15,9 +15,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: shellcheck
-        run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
-          shellcheck setup.sh docker/*.sh tests/integration/*.sh scripts/*.sh
+        # shellcheck is preinstalled on ubuntu-latest runners; avoid apt (lock waits).
+        run: shellcheck --version && shellcheck setup.sh docker/*.sh tests/integration/*.sh scripts/*.sh
       - name: hadolint
         uses: hadolint/hadolint-action@v3.1.0
         with:
