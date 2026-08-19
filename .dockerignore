@@ -1,0 +1,13 @@
+.git
+.github
+.env
+.env.*
+runtime/
+*.zip
+node_modules
+server/node_modules
+tests
+docs
+skill
+*.md
+!server/README.md
