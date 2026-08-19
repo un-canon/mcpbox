@@ -29,6 +29,8 @@ run_case() {
   local owner="$1" mode="$2" label="$3"
   local tokfile="$WORK/token-${owner%%:*}"
   openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n' > "$tokfile"
+  local token
+  token="$(cat "$tokfile")" # read before chown: the test user may not be able to afterwards
   $SUDO chown "$owner" "$tokfile"
   $SUDO chmod "$mode" "$tokfile"
 
@@ -62,8 +64,7 @@ run_case() {
   [[ "$hostperms" == "${owner%%:*} ${mode#0}" ]] || fail "$label: host token file changed to '$hostperms'"
 
   # The token must actually authenticate.
-  local token status
-  token="$(cat "$tokfile")"
+  local status
   status="$(docker exec "$NAME" curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:3000/mcp \
     -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
     -H 'Accept: application/json, text/event-stream' -H 'MCP-Protocol-Version: 2026-07-28' -H 'Mcp-Method: server/discover' \
