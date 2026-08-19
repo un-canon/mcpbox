@@ -1,0 +1,37 @@
+# MCPBox workbench sshd configuration: key-only access for the "agent" account.
+Port 22
+ListenAddress 0.0.0.0
+HostKey /run/mcpbox-hostkeys/ssh_host_ed25519_key
+
+# Authentication: public key only.
+PermitRootLogin no
+PubkeyAuthentication yes
+AuthenticationMethods publickey
+PasswordAuthentication no
+PermitEmptyPasswords no
+KbdInteractiveAuthentication no
+ChallengeResponseAuthentication no
+UsePAM no
+AuthorizedKeysFile .ssh/authorized_keys
+AllowUsers agent
+MaxAuthTries 3
+LoginGraceTime 30
+MaxSessions 10
+MaxStartups 10:30:60
+
+# Forwarding: local TCP forwarding stays on so a laptop can reach the MCP
+# service through an SSH tunnel (ssh -L 33333:mcp:3000) and dev servers running
+# in the workbench. Remote and agent forwarding are off.
+AllowTcpForwarding yes
+AllowAgentForwarding no
+AllowStreamLocalForwarding no
+GatewayPorts no
+PermitTunnel no
+X11Forwarding no
+PermitUserRC no
+
+ClientAliveInterval 60
+ClientAliveCountMax 3
+PrintMotd no
+LogLevel VERBOSE
+Subsystem sftp internal-sftp

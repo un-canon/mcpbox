@@ -1,0 +1,113 @@
+# MCPBox — isolated Docker workbench with MCP and SSH access for coding agents.
+#
+# Two containers share ONE named volume (/workspace). They do not share
+# processes, /tmp, the root filesystem, apt-installed packages or system
+# configuration. See docs/architecture.md.
+#
+# Every tunable below can be overridden in .env (copy .env.example).
+
+x-common-env: &common-env
+  TZ: "${TZ:-UTC}"
+  MCPBOX_WORKDIR: /workspace/project
+
+services:
+  workbench:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: workbench
+      args:
+        AGENT_UID: "${MCPBOX_AGENT_UID:-1000}"
+        AGENT_GID: "${MCPBOX_AGENT_GID:-1000}"
+    image: "${MCPBOX_IMAGE_PREFIX:-mcpbox}-workbench:${MCPBOX_IMAGE_TAG:-local}"
+    restart: unless-stopped
+    init: false # tini is the image entrypoint
+    hostname: workbench
+    ports:
+      # Default: loopback only. Set MCPBOX_SSH_BIND=0.0.0.0 on a remote host
+      # that you reach over SSH; never do that for the MCP port.
+      - "${MCPBOX_SSH_BIND:-127.0.0.1}:${MCPBOX_SSH_PORT:-22222}:22"
+    volumes:
+      - workspace:/workspace
+      - ssh-hostkeys:/run/mcpbox-hostkeys
+      - ./runtime/authorized_keys:/run/mcpbox/authorized_keys:ro
+    environment:
+      <<: *common-env
+      MCPBOX_REPO_URL: "${MCPBOX_REPO_URL:-}"
+      MCPBOX_GIT_USER_NAME: "${MCPBOX_GIT_USER_NAME:-}"
+      MCPBOX_GIT_USER_EMAIL: "${MCPBOX_GIT_USER_EMAIL:-}"
+    cpus: "${MCPBOX_WORKBENCH_CPUS:-2}"
+    mem_limit: "${MCPBOX_WORKBENCH_MEMORY:-4g}"
+    memswap_limit: "${MCPBOX_WORKBENCH_MEMORY:-4g}"
+    pids_limit: ${MCPBOX_WORKBENCH_PIDS:-2048}
+    ulimits:
+      nofile:
+        soft: ${MCPBOX_NOFILE:-65536}
+        hard: ${MCPBOX_NOFILE:-65536}
+    healthcheck:
+      test: ["CMD-SHELL", "sshd -t && test -s /home/agent/.ssh/authorized_keys && test -d /workspace/project"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
+
+  mcp:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: mcp
+      args:
+        AGENT_UID: "${MCPBOX_AGENT_UID:-1000}"
+        AGENT_GID: "${MCPBOX_AGENT_GID:-1000}"
+    image: "${MCPBOX_IMAGE_PREFIX:-mcpbox}-mcp:${MCPBOX_IMAGE_TAG:-local}"
+    restart: unless-stopped
+    init: false
+    hostname: mcp
+    depends_on:
+      workbench:
+        condition: service_healthy
+    ports:
+      # Always loopback. Remote clients must come through an SSH tunnel, VPN or
+      # an authenticating reverse proxy — never publish this port directly.
+      - "127.0.0.1:${MCPBOX_MCP_PORT:-33333}:3000"
+    volumes:
+      - workspace:/workspace
+      # Read-only; the entrypoint copies it to a private agent-owned 0400 file.
+      - ./runtime/mcpbox-token:/run/secrets/mcpbox-token:ro
+    environment:
+      <<: *common-env
+      MCPBOX_PORT: "3000"
+      MCPBOX_TOKEN_FILE: /run/secrets/mcpbox-token
+      # Host / Origin allow-lists (comma separated). "mcp" is the Compose
+      # service name used by the SSH tunnel example.
+      MCPBOX_ALLOWED_HOSTS: "${MCPBOX_ALLOWED_HOSTS:-127.0.0.1,localhost,mcp}"
+      MCPBOX_ALLOWED_ORIGINS: "${MCPBOX_ALLOWED_ORIGINS:-}"
+      # Session / process limits (see docs/configuration.md).
+      MCPBOX_MAX_SESSIONS: "${MCPBOX_MAX_SESSIONS:-16}"
+      MCPBOX_MAX_RUNTIME_MS: "${MCPBOX_MAX_RUNTIME_MS:-3600000}"
+      MCPBOX_IDLE_TIMEOUT_MS: "${MCPBOX_IDLE_TIMEOUT_MS:-1800000}"
+      MCPBOX_KILL_GRACE_MS: "${MCPBOX_KILL_GRACE_MS:-5000}"
+      MCPBOX_MAX_BUFFER_CHARS: "${MCPBOX_MAX_BUFFER_CHARS:-2000000}"
+      MCPBOX_MAX_IMAGE_BYTES: "${MCPBOX_MAX_IMAGE_BYTES:-12582912}"
+      MCPBOX_MAX_CONCURRENT_REQUESTS: "${MCPBOX_MAX_CONCURRENT_REQUESTS:-32}"
+      # Deprecated: accept the token in the URL path (/<token>/mcp) as well.
+      MCPBOX_LEGACY_PATH_TOKEN: "${MCPBOX_LEGACY_PATH_TOKEN:-0}"
+      MCPBOX_LOG_LEVEL: "${MCPBOX_LOG_LEVEL:-info}"
+    cpus: "${MCPBOX_MCP_CPUS:-2}"
+    mem_limit: "${MCPBOX_MCP_MEMORY:-4g}"
+    memswap_limit: "${MCPBOX_MCP_MEMORY:-4g}"
+    pids_limit: ${MCPBOX_MCP_PIDS:-1024}
+    ulimits:
+      nofile:
+        soft: ${MCPBOX_NOFILE:-65536}
+        hard: ${MCPBOX_NOFILE:-65536}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:3000/healthz >/dev/null && test -d /workspace/project"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
+
+volumes:
+  workspace:
+  ssh-hostkeys:
