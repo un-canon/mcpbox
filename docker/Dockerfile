@@ -12,6 +12,8 @@
 
 ARG NODE_IMAGE=node:22-bookworm
 
+# The tag lives in the ARG default above (older hadolint cannot see through it).
+# hadolint ignore=DL3006
 FROM ${NODE_IMAGE} AS base
 
 ARG AGENT_UID=1000
